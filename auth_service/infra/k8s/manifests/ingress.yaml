@@ -1,0 +1,36 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: auth-service-ingress
+  namespace: microservices
+  labels:
+    app: auth-service
+  annotations:
+    kubernetes.io/ingress.class: kong
+    # Kong-specific annotations (optional)
+    # Kong documentation: https://docs.konghq.com/kubernetes-ingress-controller/
+    kong.ingress.kubernetes.io/strip-path: "true"
+    kong.ingress.kubernetes.io/preserve-host: "true"
+spec:
+  rules:
+    - host: localhost # Change for production use
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8000
+    # Additional paths for API versioning
+    - host: auth-api.example.com
+      http:
+        paths:
+          - path: /v1
+            pathType: Prefix
+            backend:
+              service:
+                name: auth-service
+                port:
+                  number: 8000

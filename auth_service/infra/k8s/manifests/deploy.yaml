@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: microservices
+  labels:
+    app: auth-service
+    version: 1.0.0
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: auth-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  # wait for 10 seconds of stable state before marking a new pod as ready
+  minReadySeconds: 10
+  # keep the last 5 revisions for rollback
+  revisionHistoryLimit: 5
+  template:
+    metadata:
+      labels:
+        app: auth-service
+        version: 1.0.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 12094
+        fsGroup: 12094
+        # Use the Docker default seccomp profile
+        # This requires that the cluster's kubelet is configured to allow it
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: auth-service-sa
+      # Explicitly enabled service account token for Kong service discovery
+      # Kong Ingress Controller needs to query K8s API for service discovery
+      automountServiceAccountToken: true
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: auth-service
+          image: arthurhenrique02/auth-service:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: auth-service-config
+                  key: environment
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: auth-service-config
+                  key: log_level
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: auth-service-secrets
+                  key: secret_key
+          # Check if the service is alive
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Check if the service is ready to serve traffic
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 2
+          # Check if the service has started successfully
+          startupProbe:
+            httpGet:
+              path: /health/startup
+              port: http
+              scheme: HTTP
+            initialDelaySeconds: 0
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 18
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: var-run
+              mountPath: /var/run
+            - name: cache
+              mountPath: /var/cache
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"]
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: var-run
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+      # Pod anti-affinity to spread pods across different nodes
+      # This helps improve availability and fault tolerance
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - auth-service
+                topologyKey: kubernetes.io/hostname
+      # Topology spread constraints to ensure pods are spread across different zones
+      # This helps improve resilience against zone failures
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app: auth-service
