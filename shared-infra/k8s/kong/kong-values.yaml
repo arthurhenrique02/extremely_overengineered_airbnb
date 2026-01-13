@@ -1,0 +1,44 @@
+# Kong Helm Chart Values - customize based on your needs
+# Install Kong with: helm install kong kong/kong -f kong-values.yaml -n kong
+
+image:
+  repository: kong
+  tag: "3.9.1"
+
+kong:
+  env:
+    database: postgres  # or use in-memory 'off' for testing
+    
+ingressController:
+  enabled: true
+  installCRDs: true
+  image:
+    repository: kong/kubernetes-ingress-controller
+    tag: "3.9.1"
+
+postgres:
+  enabled: true
+  auth:
+    password: "changeme-secure-password"
+
+service:
+  type: LoadBalancer
+  # or use NodePort if no LoadBalancer available
+  ports:
+    http:
+      port: 80
+      targetPort: 8000
+    https:
+      port: 443
+      targetPort: 8443
+    admin:
+      port: 8001
+      targetPort: 8001
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
