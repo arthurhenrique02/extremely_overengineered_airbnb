@@ -14,8 +14,7 @@ ENV PATH="/root/.local/bin/:$PATH"
 
 WORKDIR /app
 
-COPY ./pyproject.toml .
-COPY ./uv.lock .
+COPY pyproject.toml uv.lock ./
 
 RUN uv sync --no-cache --locked
 
@@ -33,5 +32,7 @@ RUN groupadd --gid 12094 non_perm_g \
  && chown -R gonfreecs:non_perm_g .
 
 USER gonfreecs
+EXPOSE 8000
 
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
