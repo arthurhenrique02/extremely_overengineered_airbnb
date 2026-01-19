@@ -6,7 +6,7 @@ metadata:
   labels:
     app: auth-service
   annotations:
-    kubernetes.io/ingress.class: kong
+    kubernetes.io/ingress.className: kong
     # Kong-specific annotations (optional)
     # Kong documentation: https://docs.konghq.com/kubernetes-ingress-controller/
     kong.ingress.kubernetes.io/strip-path: "true"
