@@ -1,10 +1,12 @@
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import UUID4, BaseModel, EmailStr, Field
+from pydantic import UUID4, BaseModel, ConfigDict, EmailStr, Field
 
 
 class User(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID4
 
     name: Annotated[str, Field(min_length=1, max_length=100)]
@@ -20,6 +22,3 @@ class User(BaseModel):
     is_active: Annotated[bool, Field()] = False
     created_at: Annotated[datetime, Field()]
     updated_at: Annotated[datetime, Field()]
-
-    class Config:
-        orm_mode = True
